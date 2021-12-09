@@ -6,28 +6,30 @@
 const double END_NODE = -1;
 
 class CMathExpr;
+struct SMathVal;
+
 typedef std::unique_ptr<CMathExpr> TNodePtr;
-auto makeNode = std::make_unique<CMathExpr>;
 
 
 struct SMathVal {
 	bool isOperator;
 	double value;
-}
+};
 
 class CMathExpr {
 public:
 	static std::map<char, unsigned short> priorities;
+	static std::map<char, double(*)(double, double)> operators;
 
 	CMathExpr(SMathVal, TNodePtr _l, TNodePtr _r);
-   CMathExpr(SMathVal);
+	CMathExpr(SMathVal);
 
 	bool isEmpty();
+	double compute();
 
-   SMathVal val;
-   TNodePtr pLeft, pRight;
+	SMathVal val;
+	TNodePtr pLeft, pRight;
 };
-
-TNodePtr strToExpr(std::string_view&, unsigned int);
+TNodePtr strToExprFrom(const std::string_view&, unsigned int);
+TNodePtr strToExpr(const std::string_view&, unsigned int&);
 TNodePtr makeEmptyNode();
-double computeExpr(const CMathExpr*);
