@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <ctype.h>
 #include <math.h>
+#include <set>
 
 std::map<char, std::pair<unsigned short, double(*)(double, double)> >
  																CMathExpr::operators {
@@ -13,9 +14,12 @@ std::map<char, std::pair<unsigned short, double(*)(double, double)> >
 };
 
 TNodePtr makeEmptyNode();
-unsigned short getPriority(const TNodePtr&);
+unsigned short getPriority(const CMathExpr*);
 
 TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
+
+	std::set<const TNodePtr*> nested_expr;
+
 	unsigned int& i = start;
 	TNodePtr pHead{};
 
@@ -25,6 +29,10 @@ TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
 	while (i < str.size() && str[i] != ')' && str[i] != '\n') {
 		TNodePtr tmp;
 		double tmp_prio = 0;
+
+
+		std::cout << "LETTER_test " << str[i];
+
 
 		if (isdigit(str[i])) {
 			char* nextChar = nullptr;
@@ -36,6 +44,7 @@ TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
 		}
 		else if (str[i] == '(') {
 			tmp = strToExpr(str, ++i);
+			nested_expr.insert(&tmp);
 		}
 		else {
 			char ch = str[i++];
@@ -43,13 +52,17 @@ TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
 			tmp_prio = CMathExpr::operators[ch].first;
 		}
 
+
+
 		if (!pHead) {
 			pHead = std::move(tmp);
 		}
 		else {
 			TNodePtr* pIndex = &pHead;
 			TNodePtr* pPrev = nullptr;
-			while (*pIndex && getPriority(*pIndex) > tmp_prio) {
+			while (*pIndex
+					&& ((nested_expr.find(pIndex) != nested_expr.end())
+					|| getPriority((*pIndex).get()) > tmp_prio)) {
 				pPrev = pIndex;
 				pIndex = &(*pIndex)->pRight;
 			}
@@ -63,6 +76,8 @@ TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
 				pHead = std::move(tmp);
 			}
 		}
+
+		std::cout << "... DONE" << std::endl;
 	}
 
 	if (str[i] == ')')
@@ -75,7 +90,7 @@ TNodePtr strToExprFrom(const std::string_view& str, unsigned int start = 0){
 	return std::move(strToExpr(str, start));
 }
 
-unsigned short getPriority(const TNodePtr& arg){
+unsigned short getPriority(const CMathExpr* arg){
 	if (arg->cnt.isOperator) {
 		return CMathExpr::operators[arg->cnt.value].first;
 	}
@@ -92,6 +107,16 @@ CMathExpr::CMathExpr(bool _isOp, double _v)
 
 
 double CMathExpr::compute() {
+	std::cout << "COMPUTE_test " 	<< (cnt.isOperator ? "OP " : "NMB ");
+	if (cnt.isOperator) {
+		std::cout << (char)cnt.value;
+		std::cout << " Left: " << pLeft->cnt.value;
+		std::cout << " Right: " << pRight->cnt.value;
+		std::cout << std::endl;
+	}
+	else
+	std::cout << cnt.value << std::endl;
+
 	if (cnt.isOperator)
 		return operators[cnt.value].second(pRight->compute(), pLeft->compute());
 	else
@@ -99,13 +124,42 @@ double CMathExpr::compute() {
 }
 
 void CMathExpr::prefixPrint() {
-
+	std::cout << cnt.value << " ";
+	if (cnt.isOperator) {
+		pLeft->prefixPrint();
+		pRight->prefixPrint();
+	}
 }
 
 void CMathExpr::postfixPrint() {
-
+	if (cnt.isOperator) {
+		pLeft->prefixPrint();
+		pRight->prefixPrint();
+	}
+	std::cout << cnt.value << " ";
 }
 
 void CMathExpr::infixPrint() {
 
+	if (cnt.isOperator) {
+		if (getPriority(this) < getPriority(pLeft.get())) {
+			std::cout << "( ";
+			pLeft->infixPrint();
+			std::cout << ") ";
+		}
+		else
+			pLeft->infixPrint();
+
+		std::cout << (char)cnt.value << " ";
+
+		if (getPriority(this) < getPriority(pRight.get())) {
+			std::cout << "( ";
+			pRight->infixPrint();
+			std::cout << ") ";
+		}
+		else
+			pRight->infixPrint();
+	}
+	else
+		std::cout << cnt.value << " ";
 }

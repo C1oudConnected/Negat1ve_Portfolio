@@ -17,7 +17,7 @@ struct SNodeContent {
 class CMathExpr {
 public:
 	static std::map<char, std::pair<unsigned short, double(*)(double, double)> >
-																					operators;
+																							operators;
 
 	CMathExpr(bool, double, TNodePtr, TNodePtr);
 	CMathExpr(bool, double);
