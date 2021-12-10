@@ -1,127 +1,111 @@
 #include "CMathExpr.hpp"
 #include <cstdlib>
 #include <ctype.h>
+#include <math.h>
 
-typedef std::pair<char, unsigned short> mapEntry;
-
-std::map<char, unsigned short> CMathExpr::priorities{
-	mapEntry{'+', 2},
-	mapEntry{'-', 2},
-	mapEntry{'*', 1},
-	mapEntry{'/', 1}
-};
-
-std::map<char, double(*)(double, double)> CMathExpr::operators {
-	{'+', [](double a, double b)-> double {return a + b;}},
-	{'-', [](double a, double b)-> double {return a - b;}},
-	{'*', [](double a, double b)-> double {return a * b;}},
-	{'/', [](double a, double b)-> double {return a / b;}}
+std::map<char, std::pair<unsigned short, double(*)(double, double)> >
+ 																CMathExpr::operators {
+	{'+', {3, [](double a, double b)-> double {return a + b;		}}},
+	{'-', {3, [](double a, double b)-> double {return a - b;		}}},
+	{'*', {2, [](double a, double b)-> double {return a * b;		}}},
+	{'/', {2, [](double a, double b)-> double {return a / b;		}}},
+	{'^', {1, [](double a, double b)-> double {return pow(a,b);	}}}
 };
 
 TNodePtr makeEmptyNode();
-unsigned short getPriority(const SMathVal&);
-bool operator>(TNodePtr&, TNodePtr&);
+unsigned short getPriority(const TNodePtr&);
 
 TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
 	unsigned int& i = start;
-	TNodePtr* pHead = nullptr;
+	TNodePtr pHead{};
 
 	int inv = (str[i] == '-' ? -1 : 1);
 	if (str[i] == '-') ++i;
 
 	while (i < str.size() && str[i] != ')' && str[i] != '\n') {
-
-
-		std::cout << "Processing: " << str[i] << std::endl;
-
-
-		TNodePtr tmp{};
+		TNodePtr tmp;
+		double tmp_prio = 0;
 
 		if (isdigit(str[i])) {
 			char* nextChar = nullptr;
-			tmp = std::make_unique<CMathExpr>(SMathVal{
-				false, inv * std::strtod(&(str.data()[i]), &nextChar)});
+			tmp = std::make_unique<CMathExpr>(
+				false,
+				inv * std::strtod(&(str.data()[i]), &nextChar));
 			inv = 1;
 			i = nextChar - str.data();
 		}
-		else if (str[i] == '(')
+		else if (str[i] == '(') {
 			tmp = strToExpr(str, ++i);
-		else
-			tmp = std::make_unique<CMathExpr>(SMathVal{true, str[i++]});
-
-
-		std::cout << "Here" << std::endl;
-
-
-		if (!pHead) {
-			std::cout << "Head SET: " << str[i-1] << std::endl;
-			pHead = &tmp;
 		}
 		else {
-			TNodePtr* pIndex = pHead;
+			char ch = str[i++];
+			tmp = std::make_unique<CMathExpr>(true, ch);
+			tmp_prio = CMathExpr::operators[ch].first;
+		}
+
+		if (!pHead) {
+			pHead = std::move(tmp);
+		}
+		else {
+			TNodePtr* pIndex = &pHead;
 			TNodePtr* pPrev = nullptr;
-			while (!((*pIndex)->isEmpty()) && *pIndex > tmp) {
-				std::cout << "inside search loop" << std::endl;
+			while (*pIndex && getPriority(*pIndex) > tmp_prio) {
 				pPrev = pIndex;
 				pIndex = &(*pIndex)->pRight;
 			}
 
-			if (!(*pIndex)->isEmpty()) {
-				(tmp)->pLeft = std::move(*pIndex);
-				if (pPrev)
-					(*pPrev)->pRight = std::move(tmp);
-				else {
-					std::cout << "Head OVERWRITE: " << tmp-> val.value << std::endl;
-					pHead = &tmp;
-				}
+			if (*pIndex) {
+				tmp->pLeft = std::move(*pIndex);
+			}
+			if (pPrev)
+				(*pPrev)->pRight = std::move(tmp);
+			else {
+				pHead = std::move(tmp);
 			}
 		}
 	}
 
+	if (str[i] == ')')
+		++i;
 
-
-			std::cout << "And Here " << (*pHead)->val.value << std::endl;
-
-
-	return std::move(*pHead);
+	return std::move(pHead);
 }
 
 TNodePtr strToExprFrom(const std::string_view& str, unsigned int start = 0){
 	return std::move(strToExpr(str, start));
 }
 
-TNodePtr makeEmptyNode() {
-	return std::make_unique<CMathExpr>(SMathVal{true, END_NODE}, TNodePtr(), TNodePtr());
-}
-
-unsigned short getPriority(const SMathVal& val){
-	if (val.isOperator)
-		if (val.value == -1)
-			return -1;
-		else
-			return CMathExpr::priorities[val.value];
+unsigned short getPriority(const TNodePtr& arg){
+	if (arg->cnt.isOperator) {
+		return CMathExpr::operators[arg->cnt.value].first;
+	}
 	else return 0;
 }
 
-bool operator>(TNodePtr& lhs, TNodePtr& rhs) {
-	std::cout << "cmp" << std::endl;
-	return getPriority(lhs->val) > getPriority(rhs->val);
-		std::cout << "!cmp" << std::endl;
-}
-
-CMathExpr::CMathExpr(SMathVal _val)
-                    	: val(_val), pLeft(makeEmptyNode()), pRight(makeEmptyNode())
+CMathExpr::CMathExpr(bool _isOp, double _v, TNodePtr _l, TNodePtr _r)
+                    	: cnt{_isOp, _v}, pLeft(std::move(_l)), pRight(std::move(_r))
 						  	{}
 
-CMathExpr::CMathExpr(SMathVal _val, TNodePtr _l, TNodePtr _r)
-							: val(_val), pLeft(std::move(_l)), pRight(std::move(_r))
-							{}
+CMathExpr::CMathExpr(bool _isOp, double _v)
+                    	: cnt{_isOp, _v}, pLeft(), pRight()
+						  	{}
 
-bool CMathExpr::isEmpty() {
-	return (val.isOperator && val.value == END_NODE);
-}
 
 double CMathExpr::compute() {
-	if (val.isOperator)
-		return operators[val.value](pRight->compute(), pLeft->compute());
+	if (cnt.isOperator)
+		return operators[cnt.value].second(pRight->compute(), pLeft->compute());
+	else
+		return cnt.value;
+}
+
+void CMathExpr::prefixPrint() {
+
+}
+
+void CMathExpr::postfixPrint() {
+
+}
+
+void CMathExpr::infixPrint() {
+
 }

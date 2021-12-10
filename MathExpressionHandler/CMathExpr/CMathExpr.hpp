@@ -4,34 +4,32 @@
 #include <memory>
 #include <map>
 
-const double END_NODE = -1;
-
 class CMathExpr;
-struct SMathVal;
+struct SNodeContent;
 
 typedef std::unique_ptr<CMathExpr> TNodePtr;
 
-
-struct SMathVal {
+struct SNodeContent {
 	bool isOperator;
 	double value;
 };
 
 class CMathExpr {
 public:
-	static std::map<char, unsigned short> priorities;
-	static std::map<char, double(*)(double, double)> operators;
+	static std::map<char, std::pair<unsigned short, double(*)(double, double)> >
+																					operators;
 
-	CMathExpr(SMathVal, TNodePtr _l, TNodePtr _r);
-	CMathExpr(SMathVal);
+	CMathExpr(bool, double, TNodePtr, TNodePtr);
+	CMathExpr(bool, double);
 
-	bool isEmpty();
 	double compute();
+	void prefixPrint();
+	void postfixPrint();
+	void infixPrint();
 
-	SMathVal val;
+	SNodeContent cnt;
 	TNodePtr pLeft, pRight;
 };
 
 TNodePtr strToExprFrom(const std::string_view&, unsigned int);
 TNodePtr strToExpr(const std::string_view&, unsigned int&);
-TNodePtr makeEmptyNode();
