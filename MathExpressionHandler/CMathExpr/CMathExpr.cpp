@@ -23,45 +23,66 @@ unsigned short getPriority(const SMathVal&);
 bool operator>(TNodePtr&, TNodePtr&);
 
 TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
-
 	unsigned int& i = start;
 	TNodePtr* pHead = nullptr;
 
 	int inv = (str[i] == '-' ? -1 : 1);
 	if (str[i] == '-') ++i;
 
-	while (i < str.size() && str[i] != ')') {
-		TNodePtr* tmp = nullptr;
+	while (i < str.size() && str[i] != ')' && str[i] != '\n') {
+
+
+		std::cout << "Processing: " << str[i] << std::endl;
+
+
+		TNodePtr tmp{};
 
 		if (isdigit(str[i])) {
-			*tmp = std::make_unique<CMathExpr>(SMathVal{
-				false, inv * std::strtod(&str.data()[i], nullptr)});
+			char* nextChar = nullptr;
+			tmp = std::make_unique<CMathExpr>(SMathVal{
+				false, inv * std::strtod(&(str.data()[i]), &nextChar)});
 			inv = 1;
+			i = nextChar - str.data();
 		}
 		else if (str[i] == '(')
-			*tmp = strToExpr(str, ++i);
+			tmp = strToExpr(str, ++i);
 		else
-			*tmp = std::make_unique<CMathExpr>(SMathVal{true, str[i]});
+			tmp = std::make_unique<CMathExpr>(SMathVal{true, str[i++]});
 
-		if (!pHead)
-			pHead = tmp;
+
+		std::cout << "Here" << std::endl;
+
+
+		if (!pHead) {
+			std::cout << "Head SET: " << str[i-1] << std::endl;
+			pHead = &tmp;
+		}
 		else {
 			TNodePtr* pIndex = pHead;
 			TNodePtr* pPrev = nullptr;
-			while (!((*pIndex)->isEmpty()) && *pIndex > *tmp) {
+			while (!((*pIndex)->isEmpty()) && *pIndex > tmp) {
+				std::cout << "inside search loop" << std::endl;
 				pPrev = pIndex;
 				pIndex = &(*pIndex)->pRight;
 			}
 
 			if (!(*pIndex)->isEmpty()) {
-				(*tmp)->pLeft = std::move(*pIndex);
+				(tmp)->pLeft = std::move(*pIndex);
 				if (pPrev)
-					(*pPrev)->pRight = std::move(*tmp);
-				else
-					pHead = tmp;
+					(*pPrev)->pRight = std::move(tmp);
+				else {
+					std::cout << "Head OVERWRITE: " << tmp-> val.value << std::endl;
+					pHead = &tmp;
+				}
 			}
 		}
 	}
+
+
+
+			std::cout << "And Here " << (*pHead)->val.value << std::endl;
+
+
 	return std::move(*pHead);
 }
 
@@ -83,7 +104,9 @@ unsigned short getPriority(const SMathVal& val){
 }
 
 bool operator>(TNodePtr& lhs, TNodePtr& rhs) {
+	std::cout << "cmp" << std::endl;
 	return getPriority(lhs->val) > getPriority(rhs->val);
+		std::cout << "!cmp" << std::endl;
 }
 
 CMathExpr::CMathExpr(SMathVal _val)

@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 #include <string_view>
 #include <memory>
 #include <map>
@@ -30,6 +31,7 @@ public:
 	SMathVal val;
 	TNodePtr pLeft, pRight;
 };
+
 TNodePtr strToExprFrom(const std::string_view&, unsigned int);
 TNodePtr strToExpr(const std::string_view&, unsigned int&);
 TNodePtr makeEmptyNode();
