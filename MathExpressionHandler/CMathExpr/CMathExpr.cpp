@@ -2,7 +2,6 @@
 #include <cstdlib>
 #include <ctype.h>
 #include <math.h>
-#include <set>
 
 std::map<char, std::pair<unsigned short, double(*)(double, double)> >
  																CMathExpr::operators {
@@ -18,7 +17,7 @@ unsigned short getPriority(const CMathExpr*);
 
 TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
 
-	std::set<const TNodePtr*> nested_expr;
+	const TNodePtr* pNested_expr = nullptr;
 
 	unsigned int& i = start;
 	TNodePtr pHead{};
@@ -29,10 +28,7 @@ TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
 	while (i < str.size() && str[i] != ')' && str[i] != '\n') {
 		TNodePtr tmp;
 		double tmp_prio = 0;
-
-
-		std::cout << "LETTER_test " << str[i];
-
+  	bool isNested = false;
 
 		if (isdigit(str[i])) {
 			char* nextChar = nullptr;
@@ -44,7 +40,7 @@ TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
 		}
 		else if (str[i] == '(') {
 			tmp = strToExpr(str, ++i);
-			nested_expr.insert(&tmp);
+    	isNested = true;
 		}
 		else {
 			char ch = str[i++];
@@ -52,37 +48,35 @@ TNodePtr strToExpr(const std::string_view& str, unsigned int &start) {
 			tmp_prio = CMathExpr::operators[ch].first;
 		}
 
+		TNodePtr* pIndex = &pHead;
+		TNodePtr* pPrev = nullptr;
+		while (*pIndex && pIndex != pNested_expr
+						&& getPriority((*pIndex).get()) > tmp_prio)
+		{
+    	pPrev = pIndex;
+			pIndex = &(*pIndex)->pRight;
+		}
+		pNested_expr = nullptr;
 
+		if (*pIndex)
+			tmp->pLeft = std::move(*pIndex);
 
-		if (!pHead) {
-			pHead = std::move(tmp);
+		if (pPrev) {
+			(*pPrev)->pRight = std::move(tmp);
+    	if (isNested) {
+      	pNested_expr = &(*pPrev)->pRight;
+    	}
 		}
 		else {
-			TNodePtr* pIndex = &pHead;
-			TNodePtr* pPrev = nullptr;
-			while (*pIndex
-					&& ((nested_expr.find(pIndex) != nested_expr.end())
-					|| getPriority((*pIndex).get()) > tmp_prio)) {
-				pPrev = pIndex;
-				pIndex = &(*pIndex)->pRight;
-			}
-
-			if (*pIndex) {
-				tmp->pLeft = std::move(*pIndex);
-			}
-			if (pPrev)
-				(*pPrev)->pRight = std::move(tmp);
-			else {
-				pHead = std::move(tmp);
-			}
+			pHead = std::move(tmp);
+    	if (isNested) {
+      	pNested_expr = &pHead;
+    	}
 		}
-
-		std::cout << "... DONE" << std::endl;
 	}
 
 	if (str[i] == ')')
 		++i;
-
 	return std::move(pHead);
 }
 
@@ -107,18 +101,8 @@ CMathExpr::CMathExpr(bool _isOp, double _v)
 
 
 double CMathExpr::compute() {
-	std::cout << "COMPUTE_test " 	<< (cnt.isOperator ? "OP " : "NMB ");
-	if (cnt.isOperator) {
-		std::cout << (char)cnt.value;
-		std::cout << " Left: " << pLeft->cnt.value;
-		std::cout << " Right: " << pRight->cnt.value;
-		std::cout << std::endl;
-	}
-	else
-	std::cout << cnt.value << std::endl;
-
 	if (cnt.isOperator)
-		return operators[cnt.value].second(pRight->compute(), pLeft->compute());
+		return operators[cnt.value].second(pLeft->compute(), pRight->compute());
 	else
 		return cnt.value;
 }
