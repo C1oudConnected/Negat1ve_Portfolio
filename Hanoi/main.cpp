@@ -32,7 +32,6 @@ void hanoi(int from, int to, int start) {
 		return;
 	}
 
-
 	// Moving a subtower
 	int swp = 3 - (from + to); 		// Index of swap-tower
 	int size_swp = twrs[swp].size();
