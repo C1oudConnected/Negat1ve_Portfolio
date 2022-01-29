@@ -9,12 +9,20 @@ class CList {
 public:
 
 private:
-	
 }
 
 template<typename T>
 class CListNode {
 public:
+
+	const TNodePtr& getPrev();
+	const TNodePtr& getNext();
+	const T& getValue();
+
+	void setPrev(CListNode*);
+	void setNext(CListNode*);
+	void setValue(T);
+	void setValueByRef(T&);
 
 private:
 	TNodePtr pPrev;
